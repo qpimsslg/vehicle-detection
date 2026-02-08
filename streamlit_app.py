@@ -1,0 +1,73 @@
+import streamlit as st
+import requests
+from PIL import Image
+from io import BytesIO
+
+# адрес FastAPI сервера
+API_URL = "http://localhost:8000"
+
+
+# Функция для загрузки изображения через POST запрос на сервер
+def upload_image(file, model_type):
+    url = f"{API_URL}/{model_type}"
+
+    # указываем MIME-тип при отправке файла
+    files = {"file": (file.name, file, file.type)}
+    response = requests.post(url, files=files)
+
+    if response.status_code != 200:
+        st.error(f"Error: {response.status_code} - {response.text}")
+        return None  # None, если ошибка
+
+    return response.json()
+
+
+# функция для получения обработанного изображения
+def get_result_image(filename):
+    url = f"{API_URL}/result_image/{filename}"
+    response = requests.get(url)
+    return Image.open(BytesIO(response.content))
+
+# интерфейс streamlit
+st.title("Object Detection with YOLO")
+
+st.markdown("""
+    Это приложение использует **YOLO модели** для классификации и детекции транспортных средств на изображениях.
+
+    Для более подробной информации о:
+    - Датасете,
+    - Модели,
+    - Классах детекции,
+
+    а также для инструкций по использованию, пожалуйста, посетите [мой GitHub](https://github.com/qpimsslg/vehicle-detection).
+""")
+
+
+st.markdown("""
+    Загрузите изображение и выберите модель для обработки:
+""")
+
+model_type = st.selectbox("Choose the model:", ("quick", "accurate"))
+
+uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
+
+if uploaded_file is not None:
+    # отображаем исходное изображение
+    st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+
+    # загружаем изображение на сервер и обрабатываем
+    if st.button("Detect Objects"):
+        # отправка на FastAPI сервер
+        st.info("Processing image, please wait...")
+        response = upload_image(uploaded_file, model_type)
+
+        # печатаем сообщение сервера
+        if response:
+            st.success(response["message"])
+
+            # получаем обработанное изображение
+            result_image_url = response["result_image"]
+            result_image = get_result_image(result_image_url.split("/")[-1])
+
+            # отображаем результат
+            st.image(result_image, caption="Processed Image with BBoxes", use_column_width=True)
