@@ -7,13 +7,13 @@ from io import BytesIO
 API_URL = "http://localhost:8000"
 
 
-# Функция для загрузки изображения через POST запрос на сервер
+# функция для загрузки изображения через POST запрос на сервер
 def upload_image(file, model_type):
-    url = f"{API_URL}/{model_type}"
+    url = f"{API_URL}/predict"
 
     # указываем MIME-тип при отправке файла
     files = {"file": (file.name, file, file.type)}
-    response = requests.post(url, files=files)
+    response = requests.post(url, files=files, data={"model_type": model_type})
 
     if response.status_code != 200:
         st.error(f"Error: {response.status_code} - {response.text}")
@@ -53,7 +53,7 @@ uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
 if uploaded_file is not None:
     # отображаем исходное изображение
-    st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+    st.image(uploaded_file, caption="Uploaded Image", width='stretch')
 
     # загружаем изображение на сервер и обрабатываем
     if st.button("Detect Objects"):
@@ -70,4 +70,4 @@ if uploaded_file is not None:
             result_image = get_result_image(result_image_url.split("/")[-1])
 
             # отображаем результат
-            st.image(result_image, caption="Processed Image with BBoxes", use_column_width=True)
+            st.image(result_image, caption="Processed Image with BBoxes", width='stretch')
