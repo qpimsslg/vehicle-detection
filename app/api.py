@@ -6,6 +6,14 @@ from starlette.responses import FileResponse
 from .config import UPLOAD_DIR, MAX_FILE_SIZE, ALLOWED_TYPES
 from fastapi.staticfiles import StaticFiles
 from .queue import add_to_queue, start_workers
+import gdown
+
+def download_model():
+    model_accurate_url = "https://drive.google.com/file/d/1o8GU2OBRgyJgZYCn8LSmqKtUPJ7n1S4X/view?usp=sharing"
+    model_quick_url = "https://drive.google.com/file/d/1ReB3Elbp0DJSqZ162E3dIy334aFLQC0z/view?usp=sharing"
+    gdown.download(model_accurate_url, "models/visdrone_yolo26_accurate.pt", quiet=False)
+    gdown.download(model_quick_url, "models/visdrone_yolo26_quick.pt", quiet=False)
+
 
 
 app = FastAPI()
