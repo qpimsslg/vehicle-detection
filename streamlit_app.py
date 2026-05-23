@@ -3,40 +3,42 @@ import requests
 from PIL import Image
 from io import BytesIO
 import time
+import gdown
+from pathlib import Path
+import threading
+import uuid
+from app.detection import detect_objects
+from app.config import UPLOAD_DIR
+
+def download_model():
+    models_dir = Path("models")
+    models_dir.mkdir(exist_ok=True)
+    accurate_path = models_dir / "visdrone_yolo26_accurate.pt"
+    quick_path = models_dir / "visdrone_yolo26_quick.pt"
+
+    model_accurate_url = "https://drive.google.com/uc?id=1o8GU2OBRgyJgZYCn8LSmqKtUPJ7n1S4X"
+    model_quick_url = "https://drive.google.com/uc?id=1ReB3Elbp0DJSqZ162E3dIy334aFLQC0z"
+
+    if not accurate_path.exists():
+        gdown.download(model_accurate_url, str(accurate_path), quiet=False)
+
+    if not quick_path.exists():
+        gdown.download(model_quick_url, str(quick_path), quiet=False)
+
+
+download_model()
 
 # адрес FastAPI сервера
 API_URL = "https://vehicle-detection-htl3.onrender.com"
 
-# пробуждаем Render если он спит
-try:
-    requests.get(f"{API_URL}/docs", timeout=60)
-except:
-    pass
-
-# функция для загрузки изображения через POST запрос на сервер
-def upload_image(file, model_type):
-    url = f"{API_URL}/predict"
-
-    # указываем MIME-тип при отправке файла
-    files = {"file": (file.name, file, file.type)}
-    response = requests.post(url, files=files, data={"model_type": model_type})
-
-    if response.status_code != 200:
-        st.error(f"Error: {response.status_code} - {response.text}")
-        return None  # None, если ошибка
-
-    return response.json()
-
-
-# функция для получения обработанного изображения
-def get_result_image(filename, retries=10, delay=2):
-    url = f"{API_URL}/result_image/{filename}"
-    for attempt in range(retries):
-        response = requests.get(url)
-        if response.status_code == 200:
-            return Image.open(BytesIO(response.content))
-        time.sleep(delay)
-    return None
+def run_detection(image_path, model_path, result_path, done_event):
+    try:
+        result_image = detect_objects(image_path, model_path)
+        result_image.save(result_path)
+    except Exception as e:
+        st.session_state["detection_error"] = str(e)
+    finally:
+        done_event.set()
 
 # интерфейс streamlit
 st.title("Object Detection with YOLO")
@@ -67,23 +69,32 @@ if uploaded_file is not None:
 
     # загружаем изображение на сервер и обрабатываем
     if st.button("Detect Objects"):
-        # отправка на FastAPI сервер
-        st.info("Processing image, please wait...")
-        response = upload_image(uploaded_file, model_type)
+        # сохраняем загруженный файл
+        image_name = f"{uuid.uuid4().hex}.jpg"
+        image_path = UPLOAD_DIR / image_name
+        result_path = UPLOAD_DIR / f"{model_type}_result_{image_name}"
 
-        # печатаем сообщение сервера
-        if response:
-            st.success(response["message"])
+        with open(image_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
 
-            # получаем обработанное изображение
-            result_image_url = response["result_image"]
-            result_image = get_result_image(result_image_url.split("/")[-1], retries=20, delay=5)
+        model_path = Path(f"models/visdrone_yolo26_{model_type}.pt")
 
-            # отображаем результат
-            #st.image(result_image, caption="Processed Image with BBoxes", width='stretch')
+        # запускаем детекцию в отдельном потоке
+        done_event = threading.Event()
+        thread = threading.Thread(
+            target=run_detection,
+            args=(image_path, model_path, result_path, done_event)
+        )
+        thread.start()
 
-            if result_image:
-                st.success("Detection complete!")
-                st.image(result_image, caption="Processed Image with BBoxes", width='stretch')
-            else:
-                st.error("Processing took too long. Please try again.")
+        # ждём результата
+        with st.spinner("Processing image, please wait..."):
+            done_event.wait(timeout=120)
+
+        if result_path.exists():
+            result_image = Image.open(result_path)
+            st.success("Detection complete!")
+            st.image(result_image, caption="Processed Image with BBoxes")
+        else:
+            error = st.session_state.get("detection_error", "неизвестная ошибка")
+            st.error(f"Detection error: {error}")
