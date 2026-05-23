@@ -5,7 +5,7 @@ from io import BytesIO
 import time
 
 # адрес FastAPI сервера
-API_URL = "http://localhost:8000"
+API_URL = "https://vehicle-detection-htl3.onrender.com"
 
 
 # функция для загрузки изображения через POST запрос на сервер
