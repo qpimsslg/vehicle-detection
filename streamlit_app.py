@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 from PIL import Image
 from io import BytesIO
+import time
 
 # адрес FastAPI сервера
 API_URL = "http://localhost:8000"
@@ -23,10 +24,14 @@ def upload_image(file, model_type):
 
 
 # функция для получения обработанного изображения
-def get_result_image(filename):
+def get_result_image(filename, retries=10, delay=2):
     url = f"{API_URL}/result_image/{filename}"
-    response = requests.get(url)
-    return Image.open(BytesIO(response.content))
+    for attempt in range(retries):
+        response = requests.get(url)
+        if response.status_code == 200:
+            return Image.open(BytesIO(response.content))
+        time.sleep(delay)
+    return None
 
 # интерфейс streamlit
 st.title("Object Detection with YOLO")
@@ -69,5 +74,12 @@ if uploaded_file is not None:
             result_image_url = response["result_image"]
             result_image = get_result_image(result_image_url.split("/")[-1])
 
+
             # отображаем результат
-            st.image(result_image, caption="Processed Image with BBoxes", width='stretch')
+            #st.image(result_image, caption="Processed Image with BBoxes", width='stretch')
+
+            if result_image:
+                st.success("Detection complete!")
+                st.image(result_image, caption="Processed Image with BBoxes", width='stretch')
+            else:
+                st.error("Processing took too long. Please try again.")

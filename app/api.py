@@ -9,14 +9,23 @@ from .queue import add_to_queue, start_workers
 import gdown
 
 def download_model():
-    model_accurate_url = "https://drive.google.com/file/d/1o8GU2OBRgyJgZYCn8LSmqKtUPJ7n1S4X/view?usp=sharing"
-    model_quick_url = "https://drive.google.com/file/d/1ReB3Elbp0DJSqZ162E3dIy334aFLQC0z/view?usp=sharing"
-    gdown.download(model_accurate_url, "models/visdrone_yolo26_accurate.pt", quiet=False)
-    gdown.download(model_quick_url, "models/visdrone_yolo26_quick.pt", quiet=False)
+    models_dir = Path("models")
+    models_dir.mkdir(exist_ok=True)
+    accurate_path = models_dir / "visdrone_yolo26_accurate.pt"
+    quick_path = models_dir / "visdrone_yolo26_quick.pt"
 
+    model_accurate_url = "https://drive.google.com/uc?id=1o8GU2OBRgyJgZYCn8LSmqKtUPJ7n1S4X"
+    model_quick_url = "https://drive.google.com/uc?id=1ReB3Elbp0DJSqZ162E3dIy334aFLQC0z"
+
+    if not accurate_path.exists():
+        gdown.download(model_accurate_url, str(accurate_path), quiet=False)
+
+    if not quick_path.exists():
+        gdown.download(model_quick_url, str(quick_path), quiet=False)
 
 
 app = FastAPI()
+download_model()
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 start_workers(num_threads=4)
@@ -25,6 +34,7 @@ def validate_file_size(file: UploadFile):
     file_size = len(file.file.read())
     if file_size > MAX_FILE_SIZE * 1024 * 1024:
         raise HTTPException(status_code=413, detail="File is too large.")
+    file.file.seek(0)
 
 def save_file(file: UploadFile):
     if file.content_type not in ALLOWED_TYPES:
