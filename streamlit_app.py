@@ -7,6 +7,11 @@ import time
 # адрес FastAPI сервера
 API_URL = "https://vehicle-detection-htl3.onrender.com"
 
+# пробуждаем Render если он спит
+try:
+    requests.get(f"{API_URL}/docs", timeout=60)
+except:
+    pass
 
 # функция для загрузки изображения через POST запрос на сервер
 def upload_image(file, model_type):
@@ -72,8 +77,7 @@ if uploaded_file is not None:
 
             # получаем обработанное изображение
             result_image_url = response["result_image"]
-            result_image = get_result_image(result_image_url.split("/")[-1])
-
+            result_image = get_result_image(result_image_url.split("/")[-1], retries=20, delay=5)
 
             # отображаем результат
             #st.image(result_image, caption="Processed Image with BBoxes", width='stretch')
