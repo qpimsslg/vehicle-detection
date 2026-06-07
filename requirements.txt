@@ -11,3 +11,4 @@ starlette==0.50.0
 pydantic==2.12.5
 numpy>=1.24.0
 opencv-python-headless==4.13.0.92
+streamlit==1.57.0

@@ -1,14 +1,24 @@
-FROM python:3.11-slim
+FROM python:3.13.5-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN pip3 install -r requirements.txt
 
 COPY . .
 
 RUN mkdir -p /tmp/uploads
 
-EXPOSE 7860
+EXPOSE 8501
 
-CMD ["streamlit", "run", "streamlit_app.py", "--server.port=7860", "--server.address=0.0.0.0"]
+HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
+
+ENTRYPOINT ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
